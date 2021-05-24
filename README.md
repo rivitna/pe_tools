@@ -1,2 +1,2 @@
 # pe_tools
-Simple PE parser python class
+Simple PE parser python class and tools
