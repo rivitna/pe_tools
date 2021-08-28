@@ -11,9 +11,8 @@ import pe
 DATETIME_FMT = '%Y-%m-%d %H:%M:%S'
 
 
-def timestamp_to_str(ts):
-    return datetime.datetime.utcfromtimestamp(ts).strftime(DATETIME_FMT) + \
-           ' (UTC)'
+timestamp_to_str = lambda ts: \
+    datetime.datetime.utcfromtimestamp(ts).strftime(DATETIME_FMT) + ' (UTC)'
 
 
 def get_entropy(data):
