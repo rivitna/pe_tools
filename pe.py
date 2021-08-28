@@ -196,7 +196,21 @@ class PEFile(object):
         sorted(self.sections, key = lambda section : section.rva)
 
 
-    def _rva_to_filepos(self, rva, size = 1):
+    def filepos_to_rva(self, pos, size = 1):
+        if (pos < self.sections[0].pos):
+            if (pos + size <= self.sections[0].rva):
+                return pos
+            return -1
+        for section in self.sections:
+            if (section.pos != 0) and (pos >= section.pos):
+                offset = pos - section.pos
+                if (offset + size <= min(section.aligned_vsize,
+                                         section.aligned_psize)):
+                    return (section.rva + offset)
+        return -1
+
+
+    def rva_to_filepos(self, rva, size = 1):
         if (rva < self.sections[0].rva):
             if (rva + size <= self.sections[0].pos):
                 return rva
@@ -212,7 +226,7 @@ class PEFile(object):
 
     def _read_sz(self, pos, is_rva = False):
         if is_rva:
-            pos = self._rva_to_filepos(pos)
+            pos = self.rva_to_filepos(pos)
             if (pos < 0):
                 return None
         end_pos = self._file_data.find(0, pos)
@@ -313,7 +327,7 @@ class PEFile(object):
                 # Certificate directory
                 offset = rva if (rva != 0) else -1
             else:
-                offset = self._rva_to_filepos(rva, size) if (rva != 0) else -1
+                offset = self.rva_to_filepos(rva, size) if (rva != 0) else -1
             self.datadirs.append((offset, size))
             pos += 8
 
@@ -343,8 +357,8 @@ class PEFile(object):
                 cb, version, metadata_rva, metadata_size = \
                     self._read_dword(clr_hdr_pos, 4)
                 if (cb == clr_hdr_size):
-                    metadata_pos = self._rva_to_filepos(metadata_rva,
-                                                        metadata_size)
+                    metadata_pos = self.rva_to_filepos(metadata_rva,
+                                                       metadata_size)
                     if (metadata_pos != -1):
                         sign = self._read_dword(metadata_pos)
                         if (sign == DOTNET_METADATA_SIGN):
@@ -417,7 +431,10 @@ class PEFile(object):
         if (self.num_datadirs < 2):
             return
         # Import directory
-        dir_entry_pos = self.datadirs[1][0] - IMPORT_DIR_ENTRY_SIZE
+        dir_entry_pos = self.datadirs[1][0]
+        if (dir_entry_pos <= 0):
+            return
+        dir_entry_pos -= IMPORT_DIR_ENTRY_SIZE
         while True:
             dir_entry_pos += IMPORT_DIR_ENTRY_SIZE
             lookup_table_rva = self._read_dword(dir_entry_pos)
@@ -436,7 +453,7 @@ class PEFile(object):
                 yield lib_name.decode('ascii')
             if (lookup_table_rva == 0):
                 lookup_table_rva = thunk_table_rva
-            pos = self._rva_to_filepos(lookup_table_rva, 4)
+            pos = self.rva_to_filepos(lookup_table_rva, 4)
             if (pos < 0):
                 continue
             entry_size = 8 if self.is_x64 else 4
@@ -460,16 +477,18 @@ class PEFile(object):
             return
         # Export directory
         dir_entry_pos = self.datadirs[0][0]
+        if (dir_entry_pos <= 0):
+            return
         num_functions, num_names, addr_table_rva, name_table_rva, \
             ord_table_rva = self._read_dword(dir_entry_pos + 20, 5)
-        name_table_pos = self._rva_to_filepos(name_table_rva, 4 * num_names)
+        name_table_pos = self.rva_to_filepos(name_table_rva, 4 * num_names)
         if (name_table_pos < 0):
             return
-        ord_table_pos = self._rva_to_filepos(ord_table_rva, 2 * num_names)
+        ord_table_pos = self.rva_to_filepos(ord_table_rva, 2 * num_names)
         if (ord_table_pos < 0):
             return
-        addr_table_pos = self._rva_to_filepos(addr_table_rva,
-                                              4 * num_functions)
+        addr_table_pos = self.rva_to_filepos(addr_table_rva,
+                                             4 * num_functions)
         if (addr_table_pos < 0):
             return
         for i in range(num_names):
