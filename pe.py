@@ -259,8 +259,8 @@ class PEFile(object):
         self._opt_hdr_pos = self._img_hdr_pos + IMG_FILE_HDR_SIZE
         self._opt_hdr_size = self._read_word(self._img_hdr_pos + 0x10)
         self._characteristics = self._read_word(self._img_hdr_pos + 0x12)
-        self.is_exec = True if (self._characteristics & 0x0002) else False
-        self.is_dll = True if (self._characteristics & 0x2000) else False
+        self.is_exec = ((self._characteristics & 0x0002) != 0)
+        self.is_dll = ((self._characteristics & 0x2000) != 0)
         self._nt_hdr_size = 4 + IMG_FILE_HDR_SIZE + self._opt_hdr_size
         self._first_section_hdr_pos = self._nt_hdr_pos + self._nt_hdr_size
         self._section_alignment, self._file_alignment = \
@@ -272,7 +272,7 @@ class PEFile(object):
             self.is_corrupted = True
             raise PEFormatError('Invalid PE file.')
         opt_hdr_magic = self._read_word(self._opt_hdr_pos)
-        self.is_x64 = True if (opt_hdr_magic == OPT_HDR64_MAGIC) else False
+        self.is_x64 = (opt_hdr_magic == OPT_HDR64_MAGIC)
         if self.is_x64:
             self.image_base = self._read_qword(self._opt_hdr_pos + 0x18)
         else:
